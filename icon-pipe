@@ -1,0 +1,123 @@
+#!/bin/bash
+# icon-pipe — Pipeline completo: procesa una imagen e instala el icono
+#
+# Combina icon-process e icon-install en un flujo guiado con interfaz gráfica.
+# Usa una carpeta temporal del sistema como enlace entre ambas herramientas.
+#
+# Uso:
+#   icon-pipe                  # selector gráfico de imagen
+#   icon-pipe logo.png         # imagen directamente como argumento
+
+ICONTOOLS_DIR="$HOME/.local/share/icontools"
+VENV="$ICONTOOLS_DIR/venv"
+
+# ─────────────────────────────────────────────
+# 1. Verificar instalación
+# ─────────────────────────────────────────────
+if [ ! -f "$VENV/bin/activate" ]; then
+    zenity --error --title="IconTools no instalado" --width=420 \
+        --text="El entorno virtual no se encontró en:\n<tt>$VENV</tt>\n\nEjecuta <b>install.sh</b> primero."
+    exit 1
+fi
+
+# ─────────────────────────────────────────────
+# 2. Imagen de entrada: argumento o selector gráfico
+# ─────────────────────────────────────────────
+if [ -n "$1" ] && [ -f "$1" ]; then
+    IMAGE="$(realpath "$1")"
+else
+    IMAGE=$(zenity --file-selection \
+        --title="Selecciona la imagen del logo a instalar" \
+        --filename="$HOME/" \
+        --file-filter="Imágenes | *.png *.PNG *.jpg *.JPG *.jpeg *.JPEG *.webp *.WEBP" \
+        --file-filter="Todos los archivos | *")
+    [ -z "$IMAGE" ] && { echo "Cancelado."; exit 0; }
+fi
+
+if [ ! -f "$IMAGE" ]; then
+    zenity --error --title="Imagen no encontrada" \
+        --text="No se puede leer el archivo:\n<b>$IMAGE</b>"
+    exit 1
+fi
+
+IMAGE_BASENAME="$(basename "$IMAGE")"
+IMAGE_STEM="${IMAGE_BASENAME%.*}"
+
+# ─────────────────────────────────────────────
+# 3. Directorio temporal — se limpia automáticamente al salir
+# ─────────────────────────────────────────────
+WORK_DIR="$(mktemp -d /tmp/icontools_XXXXXX)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+PROC_LOG="$WORK_DIR/process.log"
+
+# ─────────────────────────────────────────────
+# 4. Procesar imagen con barra de progreso pulsante
+# ─────────────────────────────────────────────
+
+# Lanzar el procesador en segundo plano
+(
+    # shellcheck disable=SC1091
+    source "$VENV/bin/activate"
+    python "$ICONTOOLS_DIR/IconProcess.py" \
+        "$IMAGE" \
+        --output "$WORK_DIR" \
+        > "$PROC_LOG" 2>&1
+    echo "ICONTOOLS_DONE" >> "$PROC_LOG"
+    deactivate
+) &
+PROC_PID=$!
+
+# Mostrar progreso pulsante mientras corre el procesador
+(
+    while kill -0 "$PROC_PID" 2>/dev/null; do
+        echo ""
+        sleep 0.2
+    done
+) | zenity --progress --pulsate \
+    --title="  Procesando icono" \
+    --text="<b>Eliminando fondo negro y generando escalas...</b>\n\n<small><i>${IMAGE_BASENAME}</i></small>" \
+    --width=460 \
+    --no-cancel \
+    --auto-close
+
+wait "$PROC_PID"
+PROC_EXIT=$?
+
+# Comprobar que el proceso terminó correctamente
+if [ "$PROC_EXIT" -ne 0 ] || ! grep -q "ICONTOOLS_DONE" "$PROC_LOG" 2>/dev/null; then
+    # Escapar caracteres especiales de XML para zenity
+    LOG_PREVIEW="$(tail -8 "$PROC_LOG" 2>/dev/null \
+        | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+    zenity --error --title="Error en el procesado" --width=500 \
+        --text="Falló el procesado de la imagen.\n\n<tt>${LOG_PREVIEW}</tt>"
+    exit 1
+fi
+
+# ─────────────────────────────────────────────
+# 5. Localizar la carpeta de iconos generada
+#    IconProcess.py crea: WORK_DIR/stem/stem_NxN.png
+# ─────────────────────────────────────────────
+SOURCE_DIR="$WORK_DIR/$IMAGE_STEM"
+
+if [ ! -d "$SOURCE_DIR" ]; then
+    # Fallback: detectar cualquier subcarpeta creada
+    mapfile -t subdirs < <(find "$WORK_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+    if [ "${#subdirs[@]}" -eq 1 ]; then
+        SOURCE_DIR="${subdirs[0]}"
+    else
+        zenity --error --title="Error interno" --width=460 \
+            --text="No se encontró la carpeta de iconos procesados.\n\nEsperada:\n<tt>$SOURCE_DIR</tt>"
+        exit 1
+    fi
+fi
+
+# ─────────────────────────────────────────────
+# 6. Instalar — InstallIcon.sh gestiona la selección de .desktop
+#    y muestra el resumen final
+# ─────────────────────────────────────────────
+bash "$ICONTOOLS_DIR/InstallIcon.sh" --source "$SOURCE_DIR"
+INSTALL_EXIT=$?
+
+# La carpeta temporal se borra mediante el trap EXIT
+exit $INSTALL_EXIT

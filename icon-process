@@ -1,0 +1,49 @@
+#!/bin/bash
+# icon-process — Procesa imágenes de logo a iconos PNG multi-escala
+#
+# Activa automáticamente el entorno virtual de IconTools,
+# delega todos los argumentos a IconProcess.py y lo desactiva al salir.
+#
+# Uso:
+#   icon-process [imagen...] [opciones]
+#   icon-process --select input          # selector gráfico de entrada
+#   icon-process --select all            # selector gráfico de entrada y salida
+#   icon-process imagen.png --png-sizes 32 64 128
+#   icon-process --help                  # muestra todas las opciones
+
+ICONTOOLS_DIR="$HOME/.local/share/icontools"
+VENV="$ICONTOOLS_DIR/venv"
+SCRIPT="$ICONTOOLS_DIR/IconProcess.py"
+
+# ─────────────────────────────────────────────
+# Verificar instalación
+# ─────────────────────────────────────────────
+if [ ! -f "$VENV/bin/activate" ]; then
+    echo ""
+    echo "  [ERROR] Entorno virtual no encontrado en:"
+    echo "          $VENV"
+    echo ""
+    echo "  Ejecuta 'install.sh' para configurar IconTools."
+    echo ""
+    exit 1
+fi
+
+if [ ! -f "$SCRIPT" ]; then
+    echo ""
+    echo "  [ERROR] IconProcess.py no encontrado en:"
+    echo "          $SCRIPT"
+    echo ""
+    echo "  Ejecuta 'install.sh' para reinstalar IconTools."
+    echo ""
+    exit 1
+fi
+
+# ─────────────────────────────────────────────
+# Activar venv, ejecutar y desactivar
+# ─────────────────────────────────────────────
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+python "$SCRIPT" "$@"
+EXIT_CODE=$?
+deactivate
+exit $EXIT_CODE
