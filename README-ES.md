@@ -35,7 +35,7 @@ sudo apt install python3 python3-venv zenity libgtk-3-bin
 ## Instalación
 
 ```bash
-git clone https://github.com/tu-usuario/icontools.git
+git clone https://github.com/Inderlard/Mini-Neon.git
 cd icontools
 bash install.sh
 ```
