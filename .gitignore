@@ -1,0 +1,39 @@
+# ─── Python ───────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Entorno virtual (no se versiona; se crea con install.sh)
+venv/
+.venv/
+env/
+
+# ─── Carpetas de trabajo ──────────────────────
+# Las imágenes de entrada y salida no se suben al repo
+input/
+output/
+
+# ─── Archivos temporales del sistema ─────────
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Logs ─────────────────────────────────────
+*.log
+
+# ─── IDE / editores ───────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ─── Iconos generados (no pertenecen al repo) ─
+*.ico
