@@ -1,3 +1,12 @@
+# Install theme
+This repository includes an icon theme for GNOME and its derivatives, as well as tools for adding your own AI-generated icons.
+To install the theme, place the Mini-Neon folder directly in `~/.local/share/icons` and enable the theme in the settings.
+
+IconTools only works with this theme.
+
+> This theme is a mix of [Sours icon theme](https://github.com/tully-t/Sours) [Sours gnome look](https://www.gnome-look.org/p/2214536); [Infinity-Dark](https://github.com/L4ki/Infinity-Plasma-Themes) [Infinity-Dark gnome look](https://www.gnome-look.org/p/1436570); [Fancy dark](https://github.com/L4ki/Fancy-Plasma-Themes?tab=readme-ov-file) [Fancy dark gnome look](https://www.gnome-look.org/p/1598639)
+
+
 # IconTools
 
 A set of tools to process AI-generated logos with black backgrounds and install them as icons in the **Mini-Neon** Linux theme.
