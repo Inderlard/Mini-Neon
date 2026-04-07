@@ -21,6 +21,7 @@ Toma cualquier imagen PNG/JPG con fondo oscuro, elimina el fondo de forma inteli
 | `icon-process` | Procesa una o varias imágenes: elimina el fondo negro y exporta PNG multi-escala |
 | `icon-install` | Instala iconos ya procesados en el tema Mini-Neon |
 | `icon-pipe` | Pipeline completo: procesa e instala en un solo paso con interfaz gráfica |
+| `icon-appimage` | Instala una AppImage desde cero: procesa el logo, crea el `.desktop` y registra el icono en el tema |
 
 ---
 
@@ -108,6 +109,27 @@ icon-install --select
 icon-install --source /ruta/a/carpeta/de/iconos
 ```
 
+### Instalar una AppImage desde cero
+
+```bash
+# Selector gráfico para todo (recomendado)
+icon-appimage
+
+# Con argumentos directos
+icon-appimage logo.png MiApp.AppImage
+```
+
+Flujo:
+1. Selecciona el logo (imagen con fondo negro)
+2. Selecciona el archivo `.AppImage`
+3. Escribe el nombre de la aplicación — se usará en el lanzador y como ID de icono
+4. El logo se procesa y los PNG se instalan en Mini-Neon bajo ese ID
+5. Se copia el PNG de máxima resolución junto al AppImage como `[AppImage]-icon.png`
+6. Se crea automáticamente el `.desktop` en `~/.local/share/applications/`
+7. El AppImage queda marcado como ejecutable
+
+> **Nota:** El ID de icono se deriva del nombre introducido (minúsculas, espacios → guiones). Ese mismo ID aparece en el campo `Icon=` del `.desktop`, por lo que el tema lo resuelve correctamente.
+
 ---
 
 ## Estructura del repositorio
@@ -118,6 +140,7 @@ icontools/
 ├── InstallIcon.sh      # Instalador de iconos en Mini-Neon
 ├── icon-process        # Wrapper CLI para IconProcess.py
 ├── icon-pipe           # Pipeline completo (procesar + instalar)
+├── icon-appimage       # Pipeline para AppImages (proceso + .desktop + tema)
 ├── install.sh          # Instalador del sistema
 ├── uninstall.sh        # Desinstalador
 ├── .gitignore

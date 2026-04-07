@@ -1,0 +1,255 @@
+#!/bin/bash
+# icon-appimage — Instala una AppImage con icono personalizado desde cero
+#
+# Flujo completo:
+#   1. Selecciona la imagen del logo (selector gráfico)
+#   2. Selecciona el archivo AppImage (selector gráfico, abre en ~)
+#   3. Pide el nombre de la aplicación (usado en el .desktop y como ID de icono)
+#   4. Procesa el logo y genera los PNG multi-escala en carpeta temporal
+#   5. Copia el PNG de máxima resolución junto al AppImage como [AppImage]-icon.png
+#   6. Instala todos los tamaños en el tema Mini-Neon
+#   7. Crea la entrada .desktop en ~/.local/share/applications/
+#
+# Uso:
+#   icon-appimage
+#   icon-appimage logo.png                     # imagen directa como argumento
+#   icon-appimage logo.png MiApp.AppImage      # imagen y AppImage directos
+
+ICONTOOLS_DIR="$HOME/.local/share/icontools"
+VENV="$ICONTOOLS_DIR/venv"
+THEME_APPS="$HOME/.local/share/icons/Mini-Neon/apps"
+APPS_DIR="$HOME/.local/share/applications"
+
+# ─────────────────────────────────────────────
+# 1. Verificar instalación
+# ─────────────────────────────────────────────
+if [ ! -f "$VENV/bin/activate" ]; then
+    zenity --error --title="IconTools no instalado" --width=420 \
+        --text="El entorno virtual no se encontró en:\n<tt>$VENV</tt>\n\nEjecuta <b>install.sh</b> primero."
+    exit 1
+fi
+
+# ─────────────────────────────────────────────
+# 2. Imagen del logo
+# ─────────────────────────────────────────────
+if [ -n "$1" ] && [ -f "$1" ]; then
+    IMAGE="$(realpath "$1")"
+else
+    IMAGE=$(zenity --file-selection \
+        --title="Paso 1 — Selecciona la imagen del logo" \
+        --filename="$HOME/" \
+        --file-filter="Imágenes | *.png *.PNG *.jpg *.JPG *.jpeg *.JPEG *.webp *.WEBP" \
+        --file-filter="Todos los archivos | *")
+    [ -z "$IMAGE" ] && { echo "Cancelado."; exit 0; }
+fi
+
+if [ ! -f "$IMAGE" ]; then
+    zenity --error --title="Imagen no encontrada" \
+        --text="No se puede leer:\n<b>$IMAGE</b>"
+    exit 1
+fi
+
+IMAGE_BASENAME="$(basename "$IMAGE")"
+IMAGE_STEM="${IMAGE_BASENAME%.*}"
+
+# ─────────────────────────────────────────────
+# 3. Archivo AppImage
+# ─────────────────────────────────────────────
+if [ -n "$2" ] && [ -f "$2" ]; then
+    APPIMAGE="$(realpath "$2")"
+else
+    APPIMAGE=$(zenity --file-selection \
+        --title="Paso 2 — Selecciona el archivo AppImage" \
+        --filename="$HOME/" \
+        --file-filter="AppImage | *.AppImage *.appimage" \
+        --file-filter="Todos los archivos | *")
+    [ -z "$APPIMAGE" ] && { echo "Cancelado."; exit 0; }
+fi
+
+if [ ! -f "$APPIMAGE" ]; then
+    zenity --error --title="AppImage no encontrado" \
+        --text="No se puede leer:\n<b>$APPIMAGE</b>"
+    exit 1
+fi
+
+APPIMAGE_DIR="$(dirname "$APPIMAGE")"
+APPIMAGE_BASENAME="$(basename "$APPIMAGE")"
+APPIMAGE_STEM="${APPIMAGE_BASENAME%.*}"
+
+# ─────────────────────────────────────────────
+# 4. Nombre de la aplicación y derivación del ID de icono
+# ─────────────────────────────────────────────
+APP_NAME=$(zenity --entry \
+    --title="Paso 3 — Nombre de la aplicación" \
+    --text="Nombre que aparecerá en el lanzador y se usará como ID de icono:" \
+    --entry-text="$APPIMAGE_STEM" \
+    --width=420)
+[ -z "$APP_NAME" ] && { echo "Cancelado."; exit 0; }
+
+# ID de icono: minúsculas, espacios y caracteres especiales → guiones
+# Sólo letras, números y guiones; sin guiones al inicio/final
+ICON_ID="$(echo "$APP_NAME" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-//; s/-$//')"
+
+if [ -z "$ICON_ID" ]; then
+    zenity --error --title="Nombre no válido" \
+        --text="El nombre '<b>$APP_NAME</b>' no produce un identificador válido.\nUsa letras y números."
+    exit 1
+fi
+
+# ─────────────────────────────────────────────
+# 5. Directorio temporal — se limpia al salir
+# ─────────────────────────────────────────────
+WORK_DIR="$(mktemp -d /tmp/icontools_XXXXXX)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+PROC_LOG="$WORK_DIR/process.log"
+
+# ─────────────────────────────────────────────
+# 6. Procesar imagen (barra de progreso pulsante)
+# ─────────────────────────────────────────────
+(
+    # shellcheck disable=SC1091
+    source "$VENV/bin/activate"
+    python "$ICONTOOLS_DIR/IconProcess.py" \
+        "$IMAGE" \
+        --output "$WORK_DIR" \
+        > "$PROC_LOG" 2>&1
+    echo "ICONTOOLS_DONE" >> "$PROC_LOG"
+    deactivate
+) &
+PROC_PID=$!
+
+(
+    while kill -0 "$PROC_PID" 2>/dev/null; do
+        echo ""
+        sleep 0.2
+    done
+) | zenity --progress --pulsate \
+    --title="  Procesando logo" \
+    --text="<b>Eliminando fondo y generando escalas PNG...</b>\n\n<small><i>${IMAGE_BASENAME}</i></small>" \
+    --width=460 \
+    --no-cancel \
+    --auto-close
+
+wait "$PROC_PID"
+PROC_EXIT=$?
+
+if [ "$PROC_EXIT" -ne 0 ] || ! grep -q "ICONTOOLS_DONE" "$PROC_LOG" 2>/dev/null; then
+    LOG_PREVIEW="$(tail -8 "$PROC_LOG" 2>/dev/null \
+        | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+    zenity --error --title="Error en el procesado" --width=500 \
+        --text="Falló el procesado de la imagen.\n\n<tt>${LOG_PREVIEW}</tt>"
+    exit 1
+fi
+
+# ─────────────────────────────────────────────
+# 7. Localizar carpeta de PNGs generados
+# ─────────────────────────────────────────────
+ICONS_DIR="$WORK_DIR/$IMAGE_STEM"
+if [ ! -d "$ICONS_DIR" ]; then
+    mapfile -t subdirs < <(find "$WORK_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+    if [ "${#subdirs[@]}" -eq 1 ]; then
+        ICONS_DIR="${subdirs[0]}"
+    else
+        zenity --error --title="Error interno" --width=460 \
+            --text="No se encontró la carpeta de PNGs procesados.\n\nEsperada:\n<tt>$ICONS_DIR</tt>"
+        exit 1
+    fi
+fi
+
+# ─────────────────────────────────────────────
+# 8. Copiar PNG de máxima resolución junto al AppImage
+#    Nombre: [AppImageStem]-icon.png
+# ─────────────────────────────────────────────
+# Buscar el PNG de mayor resolución disponible (max número en el nombre)
+MAX_PNG=$(find "$ICONS_DIR" -name "*.png" | sort -t_ -k2 -V | tail -1)
+
+ICON_COPY_PATH="$APPIMAGE_DIR/${APPIMAGE_STEM}-icon.png"
+if [ -n "$MAX_PNG" ] && [ -f "$MAX_PNG" ]; then
+    cp "$MAX_PNG" "$ICON_COPY_PATH"
+fi
+
+# ─────────────────────────────────────────────
+# 9. Instalar escalas en el tema Mini-Neon
+# ─────────────────────────────────────────────
+installed=0
+errors=0
+log_lines=""
+
+while IFS= read -r -d '' png_file; do
+    filename=$(basename "$png_file")
+
+    if [[ "$filename" =~ _([0-9]+)x[0-9]+\.png$ ]]; then
+        size="${BASH_REMATCH[1]}"
+        dest_dir="$THEME_APPS/${size}"
+
+        mkdir -p "$dest_dir"
+        if cp "$png_file" "$dest_dir/${ICON_ID}.png" 2>/dev/null; then
+            log_lines+="  ✓  ${size}px  →  ${dest_dir}/${ICON_ID}.png\n"
+            (( installed++ ))
+        else
+            log_lines+="  ✗  ${size}px  →  Error al copiar\n"
+            (( errors++ ))
+        fi
+    fi
+
+done < <(find "$ICONS_DIR" -name "*.png" -print0 | sort -z)
+
+if [ "$installed" -eq 0 ]; then
+    zenity --error --title="Sin iconos instalados" \
+        --text="No se encontraron PNGs escalados en:\n<tt>$ICONS_DIR</tt>"
+    exit 1
+fi
+
+# Refrescar caché del tema
+gtk-update-icon-cache -f -t "$HOME/.local/share/icons/Mini-Neon" &>/dev/null
+
+# ─────────────────────────────────────────────
+# 10. Asegurarse de que el AppImage es ejecutable
+# ─────────────────────────────────────────────
+chmod +x "$APPIMAGE"
+
+# ─────────────────────────────────────────────
+# 11. Crear el archivo .desktop
+# ─────────────────────────────────────────────
+DESKTOP_FILE="$APPS_DIR/${ICON_ID}.desktop"
+
+cat > "$DESKTOP_FILE" << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=${APP_NAME}
+Comment=Aplicación AppImage
+Exec=${APPIMAGE}
+Icon=${ICON_ID}
+Terminal=false
+Categories=Application;
+StartupNotify=true
+EOF
+
+# Refrescar base de datos de aplicaciones
+update-desktop-database "$APPS_DIR" &>/dev/null || true
+
+# ─────────────────────────────────────────────
+# 12. Resumen final
+# ─────────────────────────────────────────────
+ICON_NOTE=""
+if [ -f "$ICON_COPY_PATH" ]; then
+    ICON_NOTE="\n🖼  Icono copiado junto al AppImage:\n   <tt>${ICON_COPY_PATH}</tt>"
+fi
+
+zenity --info \
+    --title="¡AppImage instalada!" \
+    --width=540 \
+    --text="Aplicación: <b>${APP_NAME}</b>
+AppImage:   <tt>${APPIMAGE}</tt>
+ID de icono: <b>${ICON_ID}</b>
+
+<b>Iconos instalados en Mini-Neon:</b>
+${log_lines}
+Instalados: <b>${installed}</b>   Errores: <b>${errors}</b>
+${ICON_NOTE}
+
+📄  Entrada creada: <tt>${DESKTOP_FILE}</tt>"

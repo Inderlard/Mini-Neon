@@ -1,27 +1,27 @@
-# Install theme
-This repository includes an icon theme for GNOME and its derivatives, as well as tools for adding your own AI-generated icons.
-To install the theme, place the Mini-Neon folder directly in `~/.local/share/icons` and enable the theme in the settings.
+# Theme Installation
+This repository features an icon theme for GNOME and derivatives, along with tools to add your own AI-generated icons.
+To install the theme, you must save the Mini-Neon folder directly into `~/.local/share/icons` and activate the theme in your settings.
 
 IconTools only works with this theme.
 
-> This theme is a mix of [Sours icon theme](https://github.com/tully-t/Sours) [Sours gnome look](https://www.gnome-look.org/p/2214536); [Infinity-Dark](https://github.com/L4ki/Infinity-Plasma-Themes) [Infinity-Dark gnome look](https://www.gnome-look.org/p/1436570); [Fancy dark](https://github.com/L4ki/Fancy-Plasma-Themes?tab=readme-ov-file) [Fancy dark gnome look](https://www.gnome-look.org/p/1598639)
-
+> This theme is based on a mix of [Sours icon theme](https://github.com/tully-t/Sours) [Sours gnome look](https://www.gnome-look.org/p/2214536); [Infinity-Dark](https://github.com/L4ki/Infinity-Plasma-Themes) [Infinity-Dark gnome look](https://www.gnome-look.org/p/1436570); [Fancy dark](https://github.com/L4ki/Fancy-Plasma-Themes?tab=readme-ov-file) [Fancy dark gnome look](https://www.gnome-look.org/p/1598639)
 
 # IconTools
 
-A set of tools to process AI-generated logos with black backgrounds and install them as icons in the **Mini-Neon** Linux theme.
+A set of tools to process AI-generated logos with black backgrounds and install them as icons in the Linux **Mini-Neon** theme.
 
-It takes any PNG/JPG image with a dark background, intelligently removes the background, generates the necessary scales for system icons (16 → 256 px), and installs them in the correct icon theme folder.
+It takes any PNG/JPG image with a dark background, intelligently removes the background, generates the necessary scales for system icons (16 → 256 px), and installs them in the correct folder within the icon theme.
 
 ---
 
-## Included tools
+## Included Tools
 
 | Command | Description |
 |---|---|
-| `icon-process` | Processes one or several images: removes black background and exports multi-scale PNG |
+| `icon-process` | Processes one or more images: removes black background and exports multi-scale PNGs |
 | `icon-install` | Installs already processed icons into the Mini-Neon theme |
-| `icon-pipe` | Full pipeline: processes and installs in a single step with a graphical interface |
+| `icon-pipe` | Complete pipeline: processes and installs in a single step with a graphical interface |
+| `icon-appimage` | Installs an AppImage from scratch: processes the logo, creates the `.desktop` file, and registers the icon in the theme |
 
 ---
 
@@ -50,20 +50,20 @@ bash install.sh
 ```
 
 The installer:
-1. Creates the Python virtual environment in `~/.local/share/icontools/venv/`
+1. Creates a Python virtual environment in `~/.local/share/icontools/venv/`
 2. Installs **Pillow** and **NumPy** in the venv
-3. Copies the scripts to `~/.local/share/icontools/`
-4. Installs the commands in `~/.local/bin/`
+3. Copies scripts to `~/.local/share/icontools/`
+4. Installs commands to `~/.local/bin/`
 5. Creates `.desktop` entries in `~/.local/share/applications/`
 6. Adds `~/.local/bin` to the PATH if it wasn't already there
 
-Open a new terminal (or run `source ~/.bashrc`) so the commands are available.
+Open a new terminal (or run `source ~/.bashrc`) for the commands to become available.
 
 ---
 
 ## Usage
 
-### Full pipeline (recommended)
+### Full Pipeline (Recommended)
 
 ```bash
 icon-pipe logo.png
@@ -71,13 +71,13 @@ icon-pipe logo.png
 icon-pipe
 ```
 
-Workflow:
+Flow:
 1. Select (or pass as an argument) the logo image
 2. It is automatically processed in a temporary folder
-3. You are asked to choose the target application's `.desktop` file
+3. You will be asked to choose the target application's `.desktop` file
 4. The icon is installed in Mini-Neon and the temporary folder is cleaned up
 
-### Only process
+### Process Only
 
 ```bash
 # Process an image (output goes to ./output/name/)
@@ -92,11 +92,11 @@ icon-process logo.png --png-sizes 32 48 64 128
 # Also generate .ico in addition to PNG
 icon-process logo.png --formats png ico
 
-# See all options
+# View all options
 icon-process --help
 ```
 
-### Only install
+### Install Only
 
 ```bash
 # Auto-detects subfolder in ./output
@@ -109,9 +109,30 @@ icon-install --select
 icon-install --source /path/to/icon/folder
 ```
 
+### Install an AppImage from scratch
+
+```bash
+# Graphical selector for everything (recommended)
+icon-appimage
+
+# With direct arguments
+icon-appimage logo.png MyApp.AppImage
+```
+
+Flow:
+1. Select the logo (image with black background)
+2. Select the `.AppImage` file
+3. Type the application name — this will be used for the launcher and as the icon ID
+4. The logo is processed and the PNGs are installed in Mini-Neon under that ID
+5. The maximum resolution PNG is copied next to the AppImage as `[AppImage]-icon.png`
+6. The `.desktop` file is automatically created in `~/.local/share/applications/`
+7. The AppImage is marked as executable
+
+> **Note:** The icon ID is derived from the entered name (lowercase, spaces → hyphens). This same ID appears in the `Icon=` field of the `.desktop` file, allowing the theme to resolve it correctly.
+
 ---
 
-## Repository structure
+## Repository Structure
 
 ```
 icontools/
@@ -119,6 +140,7 @@ icontools/
 ├── InstallIcon.sh      # Icon installer for Mini-Neon
 ├── icon-process        # CLI wrapper for IconProcess.py
 ├── icon-pipe           # Full pipeline (process + install)
+├── icon-appimage       # Pipeline for AppImages (process + .desktop + theme)
 ├── install.sh          # System installer
 ├── uninstall.sh        # Uninstaller
 ├── .gitignore
@@ -129,14 +151,14 @@ The `input/` and `output/` folders are created automatically when using the tool
 
 ---
 
-## How IconProcess works
+## How IconProcess Works
 
 The processor applies the following in order:
 
-1. **Remove watermark** — clears the bottom-right corner (configurable area)
-2. **Dark background → transparency** — calculates alpha from the maximum brightness of each pixel with gamma correction
-3. **Cropping and square canvas** — detects the content's bounding box and centers it on a 1:1 canvas with padding
-4. **Quality scaling** — uses LANCZOS for all sizes; applies a soft `UnsharpMask` on sizes ≤ 32px to recover definition without breaking alpha channel edges
+1. **Watermark Removal** — deletes the bottom-right corner (configurable area)
+2. **Dark Background → Transparency** — calculates alpha based on the maximum brightness of each pixel with gamma correction
+3. **Cropping and Square Canvas** — detects the content's bounding box and centers it on a 1:1 canvas with padding
+4. **Quality Scaling** — uses LANCZOS for all sizes; applies a soft `UnsharpMask` on sizes ≤ 32px to recover definition without breaking alpha channel edges
 
 Default exported PNG sizes: `16 22 24 32 48 64 128 256`
 
@@ -148,10 +170,10 @@ Default exported PNG sizes: `16 22 24 32 48 64 128 256`
 bash uninstall.sh
 ```
 
-Removes the venv, installed scripts, and `.desktop` entries. Icons already installed in Mini-Neon **are not deleted** (manually delete them from `~/.local/share/icons/Mini-Neon/apps/` if needed).
+This removes the venv, installed scripts, and `.desktop` entries. Icons already installed in Mini-Neon **are not deleted** (remove them manually from `~/.local/share/icons/Mini-Neon/apps/` if needed).
 
 ---
 
 ## License
 
-MIT — use, modify, and share it freely.
+MIT — use it, modify it, and share it freely.

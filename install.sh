@@ -5,6 +5,7 @@
 #   • Crea el entorno virtual Python con Pillow y NumPy
 #   • Copia los scripts al directorio de datos (~/.local/share/icontools/)
 #   • Instala los comandos en ~/.local/bin/
+#     (icon-process, icon-install, icon-pipe, icon-appimage)
 #   • Crea las entradas .desktop en ~/.local/share/applications/
 #   • Asegura que ~/.local/bin esté en el PATH
 
@@ -122,6 +123,11 @@ WRAPPER
 chmod +x "$BIN_DIR/icon-install"
 ok "icon-install"
 
+# icon-appimage: pipeline completo para AppImages
+cp "$REPO_DIR/icon-appimage" "$BIN_DIR/icon-appimage"
+chmod +x "$BIN_DIR/icon-appimage"
+ok "icon-appimage"
+
 # ─────────────────────────────────────────────
 # 5. Crear entorno virtual Python
 # ─────────────────────────────────────────────
@@ -222,9 +228,27 @@ StartupNotify=true
 EOF
 ok "icon-pipe.desktop"
 
+# icon-appimage.desktop
+cat > "$APPS_DIR/icon-appimage.desktop" << EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AppImage Installer
+Name[es]=Instalar AppImage con Icono
+Comment=Instala una AppImage con icono personalizado y entrada en el lanzador
+Comment[es]=Instala una AppImage con icono personalizado y entrada en el lanzador
+Exec=$BIN_DIR/icon-appimage
+Icon=application-x-executable
+Terminal=false
+Categories=Settings;DesktopSettings;Utility;
+Keywords=appimage;icon;install;launcher;mini-neon;
+StartupNotify=true
+EOF
+ok "icon-appimage.desktop"
+
 # Validar si la herramienta está disponible
 if command -v desktop-file-validate &>/dev/null; then
-    for f in icon-process icon-install icon-pipe; do
+    for f in icon-process icon-install icon-pipe icon-appimage; do
         if ! desktop-file-validate "$APPS_DIR/$f.desktop" 2>/dev/null; then
             warn "$f.desktop tiene advertencias (no crítico)"
         fi
@@ -245,9 +269,10 @@ echo -e "${C_HEADER}  ╚══════════════════�
 echo ""
 echo -e "  Comandos disponibles:"
 echo -e ""
-echo -e "    ${C_OK}icon-process${C_NC}  [imagen...]   Procesa imágenes → iconos PNG"
-echo -e "    ${C_OK}icon-install${C_NC}               Instala iconos en Mini-Neon"
-echo -e "    ${C_OK}icon-pipe${C_NC}    [imagen]      Pipeline completo en un paso"
+echo -e "    ${C_OK}icon-process${C_NC}    [imagen...]   Procesa imágenes → iconos PNG"
+echo -e "    ${C_OK}icon-install${C_NC}                 Instala iconos en Mini-Neon"
+echo -e "    ${C_OK}icon-pipe${C_NC}       [imagen]      Pipeline completo en un paso"
+echo -e "    ${C_OK}icon-appimage${C_NC}   [logo] [app]  Instala una AppImage desde cero"
 echo ""
 echo -e "  ${C_WARN}Nota:${C_NC} Si los comandos no responden, abre un terminal nuevo"
 echo -e "        o ejecuta:  ${C_WARN}source ~/.bashrc${C_NC}"

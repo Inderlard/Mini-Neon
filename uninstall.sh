@@ -46,6 +46,7 @@ echo -e "    • ${C_WARN}$INSTALL_DIR${C_NC}  (scripts + venv Python)"
 echo -e "    • ${C_WARN}$BIN_DIR/icon-process${C_NC}"
 echo -e "    • ${C_WARN}$BIN_DIR/icon-install${C_NC}"
 echo -e "    • ${C_WARN}$BIN_DIR/icon-pipe${C_NC}"
+echo -e "    • ${C_WARN}$BIN_DIR/icon-appimage${C_NC}"
 echo -e "    • Entradas .desktop en ${C_WARN}$APPS_DIR${C_NC}"
 echo ""
 read -rp "  ¿Continuar? [s/N]: " CONFIRM
@@ -75,7 +76,7 @@ fi
 # ─────────────────────────────────────────────
 step "Eliminando comandos..."
 
-for cmd in icon-process icon-install icon-pipe; do
+for cmd in icon-process icon-install icon-pipe icon-appimage; do
     target="$BIN_DIR/$cmd"
     if [ -f "$target" ]; then
         rm -f "$target"
@@ -90,7 +91,7 @@ done
 # ─────────────────────────────────────────────
 step "Eliminando entradas de aplicación..."
 
-for desktop in icon-process.desktop icon-install.desktop icon-pipe.desktop; do
+for desktop in icon-process.desktop icon-install.desktop icon-pipe.desktop icon-appimage.desktop; do
     target="$APPS_DIR/$desktop"
     if [ -f "$target" ]; then
         rm -f "$target"
